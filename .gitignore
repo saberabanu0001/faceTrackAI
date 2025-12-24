@@ -1,0 +1,8 @@
+face/
+venv/
+__pycache__/
+*.pyc
+.DS_Store
+*.dylib
+*.so
+.env
