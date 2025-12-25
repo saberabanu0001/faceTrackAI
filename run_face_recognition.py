@@ -19,8 +19,8 @@ def parse_args():
     parser.add_argument(
         "--threshold",
         type=float,
-        default=0.75,
-        help="Cosine similarity threshold for same-person decision.",
+        default=0.6,
+        help="Similarity threshold for same-person decision (0.0-1.0). Higher = stricter. Default: 0.6",
     )
     return parser.parse_args()
 

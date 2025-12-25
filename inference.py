@@ -19,11 +19,12 @@ class FaceAnalysis:
         Args:
             img1_path: Path to first image
             img2_path: Path to second image
-            threshold: Distance threshold (lower = stricter).
+            threshold: Similarity threshold (higher = stricter).
                        Typical values:
-                       - 0.3-0.4: Very strict (fewer false positives)
-                       - 0.5-0.6: Normal (default, good balance)
-                       - 0.6-0.7: Lenient (more matches, may have false positives)
+                       - 0.7-0.8: Very strict (fewer false positives)
+                       - 0.6-0.7: Normal (default, good balance)
+                       - 0.5-0.6: Lenient (more matches, may have false positives)
+                       Note: This is a SIMILARITY threshold (higher = more similar)
         
         Returns:
             tuple: (similarity_score, is_same_person)
@@ -63,9 +64,10 @@ class FaceAnalysis:
             # face_distance is already normalized, so similarity = 1 - distance
             similarity = 1.0 - distance
             
-            # Determine if faces match based on threshold
-            # face_recognition uses distance, so we check if distance < threshold
-            is_same = distance < threshold
+            # Determine if faces match based on SIMILARITY threshold
+            # Higher similarity = more likely same person
+            # So we check if similarity >= threshold
+            is_same = similarity >= threshold
             
             return similarity, is_same
             
