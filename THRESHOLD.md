@@ -1,12 +1,12 @@
-🎚️ What Is the Similarity Threshold? (Very Important)
+#  🎚️ What Is the Similarity Threshold? (Very Important)
 
 After extracting face embeddings, the model must answer one key question:
 
-“How similar is Face A to Face B?”
+***“How similar is Face A to Face B?”***
 
 This is where distance, similarity, and threshold come in.
 
-📏 Step 1: Distance Between Two Faces
+## 📏 Step 1: Distance Between Two Faces
 
 Each face is converted into a 128-dimensional vector:
 
@@ -31,7 +31,7 @@ Example distances:
 
 ⚠️ Distance works in reverse (smaller = better match), which is not intuitive for users.
 
-🔄 Step 2: Convert Distance → Similarity
+## 🔄 Step 2: Convert Distance → Similarity
 
 To make results easier to understand, we convert distance into a similarity score:
 
@@ -52,7 +52,7 @@ similarity = 1 - 0.26 = 0.74
 
 This similarity score is what the user sees in the UI.
 
-🎚️ Step 3: What Is the Threshold?
+## 🎚️ Step 3: What Is the Threshold?
 
 The threshold is the decision boundary.
 
