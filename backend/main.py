@@ -1,6 +1,6 @@
 from fastapi import FastAPI, UploadFile, File, Form
-import tempfile
-from inference import FaceAnalysis
+import tempfile, shutil, os
+from backend.inference import FaceAnalysis
 
 app = FastAPI()
 model = FaceAnalysis()
@@ -11,17 +11,24 @@ async def compare_faces(
     img2: UploadFile = File(...),
     threshold: float = Form(0.6)
 ):
+    # Save first image
     with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as f1:
-        f1.write(await img1.read())
+        shutil.copyfileobj(img1.file, f1)
         img1_path = f1.name
 
+    # Save second image
     with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as f2:
-        f2.write(await img2.read())
+        shutil.copyfileobj(img2.file, f2)
         img2_path = f2.name
 
+    # Compare faces
     similarity, is_same = model.compare(img1_path, img2_path, threshold)
 
+    # Clean up temp files
+    os.remove(img1_path)
+    os.remove(img2_path)
+
     return {
-        "similarity": similarity,
-        "is_same": is_same
+        "similarity": float(similarity),
+        "is_same": bool(is_same)
     }
