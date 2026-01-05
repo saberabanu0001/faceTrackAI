@@ -230,7 +230,19 @@ class _HomeScreenState extends State<HomeScreen> {
           );
         }
       } else {
-        throw Exception('Server error: ${response.statusCode} - ${response.body}');
+        // Try to parse error message from backend
+        String errorMsg = 'Server error: ${response.statusCode}';
+        try {
+          final errorData = json.decode(response.body);
+          if (errorData.containsKey('detail')) {
+            errorMsg = errorData['detail'] as String;
+          } else {
+            errorMsg = response.body;
+          }
+        } catch (e) {
+          errorMsg = 'Server error: ${response.statusCode}\n${response.body}';
+        }
+        throw Exception(errorMsg);
       }
     } catch (e, stackTrace) {
       print('Error in compareFaces: $e');
