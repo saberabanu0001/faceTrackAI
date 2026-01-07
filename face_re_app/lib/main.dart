@@ -44,6 +44,10 @@ class _HomeScreenState extends State<HomeScreen> {
   File? image1;
   File? image2;
   bool _isComparing = false;
+  double _threshold = 0.6;
+  double? _similarityScore;
+  bool? _isSamePerson;
+  bool _useDarkTheme = true;
 
   Future<void> _showImageSourceDialog(Function(ImageSource) onSourceSelected) async {
     await showModalBottomSheet(
@@ -165,7 +169,7 @@ class _HomeScreenState extends State<HomeScreen> {
       );
 
       // Add threshold
-      request.fields['threshold'] = '0.6';
+      request.fields['threshold'] = _threshold.toString();
 
       // Send request with timeout
       print('Sending request to backend...');
@@ -184,50 +188,12 @@ class _HomeScreenState extends State<HomeScreen> {
         final similarity = data['similarity'] as double;
         final isSame = data['is_same'] as bool;
 
-        // Show results dialog
+        // Update state with results
         if (mounted) {
-          showDialog(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: const Text('Comparison Result'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Similarity Score: ${(similarity * 100).toStringAsFixed(2)}%',
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        isSame ? Icons.check_circle : Icons.cancel,
-                        color: isSame ? Colors.green : Colors.red,
-                        size: 32,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        isSame ? 'SAME PERSON' : 'DIFFERENT PERSON',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: isSame ? Colors.green : Colors.red,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('OK'),
-                ),
-              ],
-            ),
-          );
+          setState(() {
+            _similarityScore = similarity;
+            _isSamePerson = isSame;
+          });
         }
       } else {
         // Try to parse error message from backend
@@ -350,72 +316,504 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  void clearImage1() {
+    setState(() {
+      image1 = null;
+      _similarityScore = null;
+      _isSamePerson = null;
+    });
+  }
+
+  void clearImage2() {
+    setState(() {
+      image2 = null;
+      _similarityScore = null;
+      _isSamePerson = null;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    final backgroundColor = _useDarkTheme 
+        ? const Color(0xFF0A0E27) 
+        : Colors.white;
+    final gradientColors = _useDarkTheme
+        ? [const Color(0xFF0A0E27), const Color(0xFF1A1F3A)]
+        : [Colors.white, const Color(0xFFF5F5F5)];
+    final textColor = _useDarkTheme ? Colors.white : Colors.black87;
+    final lightTextColor = _useDarkTheme ? Colors.white70 : Colors.black54;
+    final accentColor = const Color(0xFF4A9EFF);
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Face Recognition"),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            ElevatedButton(
-              onPressed: pickImage1,
-              child: const Text("Pick Image 1"),
-            ),
-            const SizedBox(height: 8),
-            image1 != null
-                ? Image.file(image1!, height: 120)
-                : const Text("No image selected"),
+      backgroundColor: backgroundColor,
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: gradientColors,
+          ),
+        ),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Header with icon and title
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.fingerprint,
+                      size: 32,
+                      color: accentColor,
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Face Recognition',
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: accentColor,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Upload two face images to verify if they belong to the same person using advanced biometric analysis.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: lightTextColor,
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 32),
 
-            const SizedBox(height: 16),
-
-            ElevatedButton(
-              onPressed: pickImage2,
-              child: const Text("Pick Image 2"),
-            ),
-            const SizedBox(height: 8),
-            image2 != null
-                ? Image.file(image2!, height: 120)
-                : const Text("No image selected"),
-
-            const SizedBox(height: 24),
-
-            ElevatedButton(
-              onPressed: (image1 != null && image2 != null && !_isComparing)
-                  ? () {
-                      print('Button pressed - image1: ${image1 != null}, image2: ${image2 != null}, isComparing: $_isComparing');
-                      compareFaces();
-                    }
-                  : () {
-                      print('Button disabled - image1: ${image1 != null}, image2: ${image2 != null}, isComparing: $_isComparing');
-                      if (image1 == null || image2 == null) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Please select both images first'),
-                            duration: Duration(seconds: 2),
+                // Image comparison section
+                Row(
+                  children: [
+                    // Image 1
+                    Expanded(
+                      child: Column(
+                        children: [
+                          Text(
+                            'IMAGE 1',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: lightTextColor,
+                              letterSpacing: 1.2,
+                            ),
                           ),
-                        );
-                      }
-                    },
-              child: _isComparing
-                  ? const Row(
+                          const SizedBox(height: 8),
+                          GestureDetector(
+                            onTap: pickImage1,
+                            child: Container(
+                              height: 180,
+                              decoration: BoxDecoration(
+                                color: _useDarkTheme 
+                                    ? const Color(0xFF1A1F3A) 
+                                    : Colors.grey[200],
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: image1 != null 
+                                      ? accentColor 
+                                      : Colors.grey.withOpacity(0.3),
+                                  width: 2,
+                                ),
+                              ),
+                              child: image1 != null
+                                  ? Stack(
+                                      children: [
+                                        ClipRRect(
+                                          borderRadius: BorderRadius.circular(10),
+                                          child: Image.file(
+                                            image1!,
+                                            width: double.infinity,
+                                            height: double.infinity,
+                                            fit: BoxFit.cover,
+                                          ),
+                                        ),
+                                        Positioned(
+                                          top: 8,
+                                          right: 8,
+                                          child: GestureDetector(
+                                            onTap: clearImage1,
+                                            child: Container(
+                                              padding: const EdgeInsets.all(4),
+                                              decoration: BoxDecoration(
+                                                color: Colors.black54,
+                                                shape: BoxShape.circle,
+                                              ),
+                                              child: const Icon(
+                                                Icons.close,
+                                                color: Colors.white,
+                                                size: 16,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                                  : Icon(
+                                      Icons.add_photo_alternate,
+                                      size: 48,
+                                      color: lightTextColor,
+                                    ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // VS Icon
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Container(
+                        width: 50,
+                        height: 50,
+                        decoration: BoxDecoration(
+                          color: accentColor,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: Text(
+                            'VS',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    // Image 2
+                    Expanded(
+                      child: Column(
+                        children: [
+                          Text(
+                            'IMAGE 2',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: lightTextColor,
+                              letterSpacing: 1.2,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          GestureDetector(
+                            onTap: pickImage2,
+                            child: Container(
+                              height: 180,
+                              decoration: BoxDecoration(
+                                color: _useDarkTheme 
+                                    ? const Color(0xFF1A1F3A) 
+                                    : Colors.grey[200],
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: image2 != null 
+                                      ? accentColor 
+                                      : Colors.grey.withOpacity(0.3),
+                                  width: 2,
+                                ),
+                              ),
+                              child: image2 != null
+                                  ? Stack(
+                                      children: [
+                                        ClipRRect(
+                                          borderRadius: BorderRadius.circular(10),
+                                          child: Image.file(
+                                            image2!,
+                                            width: double.infinity,
+                                            height: double.infinity,
+                                            fit: BoxFit.cover,
+                                          ),
+                                        ),
+                                        Positioned(
+                                          top: 8,
+                                          right: 8,
+                                          child: GestureDetector(
+                                            onTap: clearImage2,
+                                            child: Container(
+                                              padding: const EdgeInsets.all(4),
+                                              decoration: BoxDecoration(
+                                                color: Colors.black54,
+                                                shape: BoxShape.circle,
+                                              ),
+                                              child: const Icon(
+                                                Icons.close,
+                                                color: Colors.white,
+                                                size: 16,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                                  : Icon(
+                                      Icons.add_photo_alternate,
+                                      size: 48,
+                                      color: lightTextColor,
+                                    ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 32),
+
+                // Similarity Threshold Slider
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'SIMILARITY THRESHOLD',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: lightTextColor,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                        Text(
+                          _threshold.toStringAsFixed(2),
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: accentColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Stack(
+                      children: [
+                        Slider(
+                          value: _threshold,
+                          min: 0.3,
+                          max: 0.9,
+                          divisions: 60,
+                          activeColor: accentColor,
+                          inactiveColor: Colors.grey.withOpacity(0.3),
+                          onChanged: (value) {
+                            setState(() {
+                              _threshold = value;
+                              _similarityScore = null;
+                              _isSamePerson = null;
+                            });
+                          },
+                        ),
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          bottom: 20,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Lenient',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: lightTextColor,
+                                ),
+                              ),
+                              Text(
+                                'Normal',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: lightTextColor,
+                                ),
+                              ),
+                              Text(
+                                'Strict',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: lightTextColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
+                // Compare Button
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: ElevatedButton(
+                    onPressed: (image1 != null && image2 != null && !_isComparing)
+                        ? compareFaces
+                        : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: accentColor,
+                      disabledBackgroundColor: Colors.grey.withOpacity(0.3),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 4,
+                    ),
+                    child: _isComparing
+                        ? const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                ),
+                              ),
+                              SizedBox(width: 12),
+                              Text(
+                                'Comparing...',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          )
+                        : const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.refresh,
+                                color: Colors.white,
+                              ),
+                              SizedBox(width: 8),
+                              Text(
+                                'COMPARE FACES',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                  letterSpacing: 1.2,
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
+                ),
+
+                // Results Section
+                if (_similarityScore != null) ...[
+                  const SizedBox(height: 32),
+                  // Similarity Score
+                  Column(
+                    children: [
+                      Text(
+                        'SIMILARITY SCORE',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: lightTextColor,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            '${(_similarityScore! * 100).toStringAsFixed(0)}%',
+                            style: TextStyle(
+                              fontSize: 48,
+                              fontWeight: FontWeight.bold,
+                              color: _similarityScore! >= _threshold 
+                                  ? Colors.green 
+                                  : Colors.red,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Icon(
+                            _similarityScore! >= _threshold 
+                                ? Icons.arrow_upward 
+                                : Icons.arrow_downward,
+                            color: _similarityScore! >= _threshold 
+                                ? Colors.green 
+                                : Colors.red,
+                            size: 24,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  // Result Indicator
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _isSamePerson! 
+                          ? Colors.green.withOpacity(0.2)
+                          : Colors.red.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: _isSamePerson! ? Colors.green : Colors.red,
+                        width: 2,
+                      ),
+                    ),
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                        Icon(
+                          _isSamePerson! ? Icons.check_circle : Icons.cancel,
+                          color: _isSamePerson! ? Colors.green : Colors.red,
+                          size: 24,
                         ),
-                        SizedBox(width: 8),
-                        Text("Comparing..."),
+                        const SizedBox(width: 8),
+                        Text(
+                          _isSamePerson! ? 'SAME PERSON' : 'DIFFERENT PERSON',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: _isSamePerson! ? Colors.green : Colors.red,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
                       ],
-                    )
-                  : const Text("Compare Faces"),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 20),
+                // Theme Toggle
+                TextButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _useDarkTheme = !_useDarkTheme;
+                    });
+                  },
+                  icon: Icon(
+                    _useDarkTheme ? Icons.light_mode : Icons.dark_mode,
+                    color: lightTextColor,
+                  ),
+                  label: Text(
+                    _useDarkTheme ? 'Light Mode' : 'Dark Mode',
+                    style: TextStyle(color: lightTextColor),
+                  ),
+                ),
+              ],
             ),
-          ],
-          
+          ),
         ),
       ),
     );
