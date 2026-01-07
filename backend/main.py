@@ -29,27 +29,27 @@ async def compare_faces(
     try:
         print(f"Received request: img1={img1.filename}, img2={img2.filename}, threshold={threshold}")
         
-    # Save first image
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".jpeg") as f1:
-        shutil.copyfileobj(img1.file, f1)
-        img1_path = f1.name
+        # Save first image
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".jpeg") as f1:
+            shutil.copyfileobj(img1.file, f1)
+            img1_path = f1.name
             print(f"Saved image1 to: {img1_path}")
 
-    # Save second image
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".jpeg") as f2:
-        shutil.copyfileobj(img2.file, f2)
-        img2_path = f2.name
+        # Save second image
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".jpeg") as f2:
+            shutil.copyfileobj(img2.file, f2)
+            img2_path = f2.name
             print(f"Saved image2 to: {img2_path}")
 
-    # Compare faces
+        # Compare faces
         print("Starting face comparison...")
-    similarity, is_same = model.compare(img1_path, img2_path, threshold)
+        similarity, is_same = model.compare(img1_path, img2_path, threshold)
         print(f"Comparison result: similarity={similarity}, is_same={is_same}")
 
         result = {
-        "similarity": float(similarity),
-        "is_same": bool(is_same)
-    }
+            "similarity": float(similarity),
+            "is_same": bool(is_same)
+        }
         
         return result
         

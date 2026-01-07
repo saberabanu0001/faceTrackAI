@@ -56,7 +56,7 @@ You can imagine these features as answers to many tiny questions, such as:
 - How deep are the eye sockets?
 - What is the nose structure?
 - What is the forehead ratio?
-- How symmetrical is the face?
+- How/' symmetrical is the face?
 - What are the cheekbone patterns?
 - What are the skin texture patterns?
 - … and many more details that humans cannot consciously describe
