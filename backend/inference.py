@@ -51,25 +51,36 @@ class FaceAnalysis:
             if len(encodings2) == 0:
                 raise ValueError(f"No face detected in {img2_path}. Make sure the image contains a clear, front-facing face.")
             
-            # If multiple faces, use the first one
-            encoding1 = encodings1[0]
-            encoding2 = encodings2[0]
+            # Handle multiple faces: find the best match
+            # Strategy: Compare each face in Image 1 with each face in Image 2
+            # Return the best match (highest similarity score)
             
-            # Calculate face distance (lower = more similar)
-            # face_distance returns values typically between 0.0 and 1.0
-            # 0.0 = identical faces, 1.0 = completely different
-            distance = face_recognition.face_distance([encoding1], encoding2)[0]
+            best_similarity = -1.0
             
-            # Convert distance to similarity score (0-1, higher = more similar)
-            # face_distance is already normalized, so similarity = 1 - distance
-            similarity = 1.0 - distance
+            # Compare all faces in Image 1 against all faces in Image 2
+            # Find the best match across all combinations
+            for encoding1 in encodings1:
+                # Calculate distances from this face in Image 1 to all faces in Image 2
+                distances = face_recognition.face_distance(encodings2, encoding1)
+                
+                # For each face in Image 2, calculate similarity
+                for distance in distances:
+                    similarity = 1.0 - distance
+                    # Keep track of the best match found
+                    if similarity > best_similarity:
+                        best_similarity = similarity
+            
+            # If multiple faces detected, log information
+            if len(encodings1) > 1:
+                print(f"ℹ️  Multiple faces detected in Image 1 ({len(encodings1)} faces). Comparing against all faces and using best match.")
+            if len(encodings2) > 1:
+                print(f"ℹ️  Multiple faces detected in Image 2 ({len(encodings2)} faces). Comparing against all faces and using best match.")
             
             # Determine if faces match based on SIMILARITY threshold
-            # Higher similarity = more likely same person
-            # So we check if similarity >= threshold
-            is_same = similarity >= threshold
+            # The best match must meet the threshold to be considered "same person"
+            is_same = best_similarity >= threshold
             
-            return similarity, is_same
+            return best_similarity, is_same
             
         except Exception as exc:
             raise ValueError(f"Error during face comparison: {exc}") from exc
