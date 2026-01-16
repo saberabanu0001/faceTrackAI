@@ -871,16 +871,18 @@ class _HomeScreenState extends State<HomeScreen> {
       return const SizedBox.shrink();
     }
     
+    // Extract to non-nullable variables after null check
+    final nonNullTargetImage = targetImage!;
+    final nonNullLocation = location!;
+    
     return FutureBuilder<Size>(
-      future: _getImageSize(targetImage!),
+      future: _getImageSize(nonNullTargetImage),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
           return const SizedBox(height: 200, child: Center(child: CircularProgressIndicator()));
         }
         
         final imageSize = snapshot.data!;
-        final scaleX = imageSize.width / (imageSize.width); // Adjust if needed based on actual image display size
-        final scaleY = imageSize.height / (imageSize.height);
         
         return Container(
           constraints: const BoxConstraints(maxHeight: 300),
@@ -897,17 +899,17 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 // Image
                 Image.file(
-                  targetImage!,
+                  nonNullTargetImage,
                   fit: BoxFit.contain,
                 ),
                 // Bounding box overlay
                 CustomPaint(
                   size: imageSize,
                   painter: BoundingBoxPainter(
-                    top: (location['top'] as num).toDouble(),
-                    right: (location['right'] as num).toDouble(),
-                    bottom: (location['bottom'] as num).toDouble(),
-                    left: (location['left'] as num).toDouble(),
+                    top: (nonNullLocation['top'] as num).toDouble(),
+                    right: (nonNullLocation['right'] as num).toDouble(),
+                    bottom: (nonNullLocation['bottom'] as num).toDouble(),
+                    left: (nonNullLocation['left'] as num).toDouble(),
                   ),
                 ),
               ],
