@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:convert';
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -48,6 +49,9 @@ class _HomeScreenState extends State<HomeScreen> {
   double? _similarityScore;
   bool? _isSamePerson;
   bool _useDarkTheme = true;
+  
+  // Match info for bounding boxes
+  Map<String, dynamic>? _matchInfo;
 
   Future<void> _showImageSourceDialog(Function(ImageSource) onSourceSelected) async {
     await showModalBottomSheet(
@@ -187,12 +191,14 @@ class _HomeScreenState extends State<HomeScreen> {
         final data = json.decode(response.body);
         final similarity = data['similarity'] as double;
         final isSame = data['is_same'] as bool;
+        final matchInfo = data['match_info'] as Map<String, dynamic>?;
 
         // Update state with results
         if (mounted) {
           setState(() {
             _similarityScore = similarity;
             _isSamePerson = isSame;
+            _matchInfo = matchInfo;
           });
         }
       } else {
@@ -321,6 +327,7 @@ class _HomeScreenState extends State<HomeScreen> {
       image1 = null;
       _similarityScore = null;
       _isSamePerson = null;
+      _matchInfo = null;
     });
   }
 
@@ -329,6 +336,7 @@ class _HomeScreenState extends State<HomeScreen> {
       image2 = null;
       _similarityScore = null;
       _isSamePerson = null;
+      _matchInfo = null;
     });
   }
 
@@ -793,6 +801,24 @@ class _HomeScreenState extends State<HomeScreen> {
                       ],
                     ),
                   ),
+                  
+                  // Third Section: Show matched face with bounding box (if multiple faces)
+                  if (_matchInfo != null && 
+                      (_matchInfo!['multiple_faces_image1'] == true || 
+                       _matchInfo!['multiple_faces_image2'] == true)) ...[
+                    const SizedBox(height: 32),
+                    Text(
+                      'MATCHED PERSON',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: lightTextColor,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildImageWithBoundingBox(),
+                  ],
                 ],
                 const SizedBox(height: 20),
                 // Theme Toggle
@@ -818,4 +844,110 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+
+  Widget _buildImageWithBoundingBox() {
+    // Determine which image has multiple faces
+    bool image1HasMultiple = _matchInfo!['multiple_faces_image1'] == true;
+    bool image2HasMultiple = _matchInfo!['multiple_faces_image2'] == true;
+    
+    // Show the image with multiple faces, or image1 if both have multiple
+    File? targetImage;
+    Map<String, dynamic>? location;
+    const accentColor = Color(0xFF4A9EFF);
+    
+    if (image1HasMultiple && image1 != null) {
+      targetImage = image1;
+      location = _matchInfo!['face1_location'] as Map<String, dynamic>?;
+    } else if (image2HasMultiple && image2 != null) {
+      targetImage = image2;
+      location = _matchInfo!['face2_location'] as Map<String, dynamic>?;
+    } else {
+      // Fallback: show image1 if available
+      targetImage = image1;
+      location = _matchInfo!['face1_location'] as Map<String, dynamic>?;
+    }
+    
+    if (targetImage == null || location == null) {
+      return const SizedBox.shrink();
+    }
+    
+    return FutureBuilder<Size>(
+      future: _getImageSize(targetImage!),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const SizedBox(height: 200, child: Center(child: CircularProgressIndicator()));
+        }
+        
+        final imageSize = snapshot.data!;
+        final scaleX = imageSize.width / (imageSize.width); // Adjust if needed based on actual image display size
+        final scaleY = imageSize.height / (imageSize.height);
+        
+        return Container(
+          constraints: const BoxConstraints(maxHeight: 300),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: accentColor,
+              width: 2,
+            ),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: Stack(
+              children: [
+                // Image
+                Image.file(
+                  targetImage!,
+                  fit: BoxFit.contain,
+                ),
+                // Bounding box overlay
+                CustomPaint(
+                  size: imageSize,
+                  painter: BoundingBoxPainter(
+                    top: (location['top'] as num).toDouble(),
+                    right: (location['right'] as num).toDouble(),
+                    bottom: (location['bottom'] as num).toDouble(),
+                    left: (location['left'] as num).toDouble(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<Size> _getImageSize(File imageFile) async {
+    final image = await decodeImageFromList(await imageFile.readAsBytes());
+    return Size(image.width.toDouble(), image.height.toDouble());
+  }
+}
+
+class BoundingBoxPainter extends CustomPainter {
+  final double top;
+  final double right;
+  final double bottom;
+  final double left;
+
+  BoundingBoxPainter({
+    required this.top,
+    required this.right,
+    required this.bottom,
+    required this.left,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.green
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.0;
+
+    final rect = Rect.fromLTRB(left, top, right, bottom);
+    canvas.drawRect(rect, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

@@ -43,12 +43,13 @@ async def compare_faces(
 
         # Compare faces
         print("Starting face comparison...")
-        similarity, is_same = model.compare(img1_path, img2_path, threshold)
+        similarity, is_same, match_info = model.compare(img1_path, img2_path, threshold)
         print(f"Comparison result: similarity={similarity}, is_same={is_same}")
 
         result = {
             "similarity": float(similarity),
-            "is_same": bool(is_same)
+            "is_same": bool(is_same),
+            "match_info": match_info
         }
         
         return result
