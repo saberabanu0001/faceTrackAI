@@ -889,7 +889,8 @@ class _HomeScreenState extends State<HomeScreen> {
         final originalLeft = (nonNullLocation['left'] as num).toDouble();
         
         return Container(
-          constraints: const BoxConstraints(maxHeight: 300),
+          width: double.infinity,
+          height: 300,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
@@ -901,12 +902,12 @@ class _HomeScreenState extends State<HomeScreen> {
             borderRadius: BorderRadius.circular(10),
             child: LayoutBuilder(
               builder: (context, constraints) {
-                // Calculate displayed image size (with BoxFit.contain)
-                final maxWidth = constraints.maxWidth;
-                final maxHeight = constraints.maxHeight;
+                final containerWidth = constraints.maxWidth;
+                final containerHeight = constraints.maxHeight;
                 
+                // Calculate displayed image size (with BoxFit.contain)
                 final imageAspectRatio = originalImageSize.width / originalImageSize.height;
-                final containerAspectRatio = maxWidth / maxHeight;
+                final containerAspectRatio = containerWidth / containerHeight;
                 
                 double displayedWidth;
                 double displayedHeight;
@@ -915,14 +916,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 
                 if (imageAspectRatio > containerAspectRatio) {
                   // Image is wider - fit to width
-                  displayedWidth = maxWidth;
-                  displayedHeight = maxWidth / imageAspectRatio;
-                  offsetY = (maxHeight - displayedHeight) / 2;
+                  displayedWidth = containerWidth;
+                  displayedHeight = containerWidth / imageAspectRatio;
+                  offsetY = (containerHeight - displayedHeight) / 2;
                 } else {
                   // Image is taller - fit to height
-                  displayedHeight = maxHeight;
-                  displayedWidth = maxHeight * imageAspectRatio;
-                  offsetX = (maxWidth - displayedWidth) / 2;
+                  displayedHeight = containerHeight;
+                  displayedWidth = containerHeight * imageAspectRatio;
+                  offsetX = (containerWidth - displayedWidth) / 2;
                 }
                 
                 // Calculate scale factors
@@ -935,14 +936,32 @@ class _HomeScreenState extends State<HomeScreen> {
                 final scaledRight = originalRight * scaleX + offsetX;
                 final scaledBottom = originalBottom * scaleY + offsetY;
                 
+                // Debug print
+                print('=== Bounding Box Debug ===');
+                print('Original image: ${originalImageSize.width}x${originalImageSize.height}');
+                print('Original bbox: top=$originalTop, left=$originalLeft, bottom=$originalBottom, right=$originalRight');
+                print('Container: ${containerWidth}x${containerHeight}');
+                print('Displayed size: ${displayedWidth}x${displayedHeight}');
+                print('Scale: $scaleX x $scaleY');
+                print('Offset: $offsetX, $offsetY');
+                print('Scaled bbox: top=$scaledTop, left=$scaledLeft, bottom=$scaledBottom, right=$scaledRight');
+                print('Bbox size: ${scaledRight - scaledLeft} x ${scaledBottom - scaledTop}');
+                
                 return Stack(
+                  clipBehavior: Clip.none,
                   children: [
-                    // Image
-                    Image.file(
-                      nonNullTargetImage,
-                      fit: BoxFit.contain,
-                      width: maxWidth,
-                      height: maxHeight,
+                    // Image - positioned to match our calculations
+                    Positioned(
+                      left: offsetX,
+                      top: offsetY,
+                      child: SizedBox(
+                        width: displayedWidth,
+                        height: displayedHeight,
+                        child: Image.file(
+                          nonNullTargetImage,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
                     ),
                     // Bounding box overlay
                     Positioned(
@@ -954,7 +973,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         decoration: BoxDecoration(
                           border: Border.all(
                             color: Colors.green,
-                            width: 3,
+                            width: 4,
                           ),
                         ),
                       ),
