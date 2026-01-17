@@ -912,15 +912,14 @@ class _HomeScreenState extends State<HomeScreen> {
         final originalBottom = (nonNullLocation['bottom'] as num).toDouble();
         final originalLeft = (nonNullLocation['left'] as num).toDouble();
         
-        // Simple approach: Show image with a colored border indicator
-        // and display the matched face number
+        // Ultra-simple approach: Use InteractiveViewer to show image
+        // and overlay a simple colored rectangle
         final totalFaces = _matchInfo!['total_faces_image1'] as int? ?? 
                           _matchInfo!['total_faces_image2'] as int? ?? 1;
-        final matchedFaceNumber = image1HasMultiple ? 1 : 1; // Face #1 was matched
         
         return Column(
           children: [
-            // Full image with indicator
+            // Image container with bounding box overlay
             Container(
               width: double.infinity,
               height: 300,
@@ -933,108 +932,45 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(10),
-                child: Stack(
-                  children: [
-                    // Image
-                    Image.file(
-                      nonNullTargetImage,
-                      fit: BoxFit.contain,
-                      width: double.infinity,
-                      height: double.infinity,
-                    ),
-                    // Green overlay indicator in top-left corner
-                    Positioned(
-                      top: 8,
-                      left: 8,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.green.withOpacity(0.9),
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.3),
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.check_circle,
-                              color: Colors.white,
-                              size: 16,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Face #$matchedFaceNumber Matched',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    // Corner indicators showing which face was matched
-                    if (totalFaces > 1) ...[
-                      // Top-left corner indicator
-                      Positioned(
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        child: CustomPaint(
-                          painter: SimpleBoundingBoxPainter(
-                            imageSize: originalImageSize,
-                            bboxTop: originalTop,
-                            bboxLeft: originalLeft,
-                            bboxBottom: originalBottom,
-                            bboxRight: originalRight,
-                            containerSize: const Size(double.infinity, 300),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
+                child: _BoundingBoxImage(
+                  imageFile: nonNullTargetImage,
+                  originalImageSize: originalImageSize,
+                  bboxTop: originalTop,
+                  bboxLeft: originalLeft,
+                  bboxBottom: originalBottom,
+                  bboxRight: originalRight,
                 ),
               ),
             ),
             const SizedBox(height: 12),
-            // Info text
+            // Info badge
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
-                color: Colors.green.withOpacity(0.1),
+                color: Colors.green.withOpacity(0.15),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: Colors.green.withOpacity(0.3),
+                  color: Colors.green,
+                  width: 2,
                 ),
               ),
               child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Icon(
-                    Icons.info_outline,
+                    Icons.face,
                     color: Colors.green,
                     size: 20,
                   ),
                   const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      totalFaces > 1
-                          ? 'Matched face #$matchedFaceNumber out of $totalFaces faces detected'
-                          : 'Face matched successfully',
-                      style: const TextStyle(
-                        color: Colors.green,
-                        fontSize: 12,
-                      ),
+                  Text(
+                    totalFaces > 1
+                        ? 'Matched: Face #1 of $totalFaces detected faces'
+                        : 'Face matched successfully',
+                    style: const TextStyle(
+                      color: Colors.green,
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ],
@@ -1175,4 +1111,114 @@ class SimpleBoundingBoxPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+// Separate widget for bounding box image - simpler approach
+class _BoundingBoxImage extends StatelessWidget {
+  final File imageFile;
+  final Size originalImageSize;
+  final double bboxTop;
+  final double bboxLeft;
+  final double bboxBottom;
+  final double bboxRight;
+
+  const _BoundingBoxImage({
+    required this.imageFile,
+    required this.originalImageSize,
+    required this.bboxTop,
+    required this.bboxLeft,
+    required this.bboxBottom,
+    required this.bboxRight,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final containerWidth = constraints.maxWidth;
+        final containerHeight = constraints.maxHeight;
+        
+        // Calculate displayed image size (BoxFit.contain)
+        final imageAspectRatio = originalImageSize.width / originalImageSize.height;
+        final containerAspectRatio = containerWidth / containerHeight;
+        
+        double displayedWidth;
+        double displayedHeight;
+        double offsetX = 0;
+        double offsetY = 0;
+        
+        if (imageAspectRatio > containerAspectRatio) {
+          displayedWidth = containerWidth;
+          displayedHeight = containerWidth / imageAspectRatio;
+          offsetY = (containerHeight - displayedHeight) / 2;
+        } else {
+          displayedHeight = containerHeight;
+          displayedWidth = containerHeight * imageAspectRatio;
+          offsetX = (containerWidth - displayedWidth) / 2;
+        }
+        
+        // Scale factors
+        final scaleX = displayedWidth / originalImageSize.width;
+        final scaleY = displayedHeight / originalImageSize.height;
+        
+        // Scale coordinates
+        final scaledLeft = bboxLeft * scaleX + offsetX;
+        final scaledTop = bboxTop * scaleY + offsetY;
+        final scaledRight = bboxRight * scaleX + offsetX;
+        final scaledBottom = bboxBottom * scaleY + offsetY;
+        
+        // Debug
+        print('🎯 BBOX CALC:');
+        print('   Original: ${originalImageSize.width}x${originalImageSize.height}');
+        print('   Bbox: top=$bboxTop, left=$bboxLeft, bottom=$bboxBottom, right=$bboxRight');
+        print('   Displayed: ${displayedWidth}x${displayedHeight}');
+        print('   Scale: $scaleX x $scaleY');
+        print('   Offset: $offsetX, $offsetY');
+        print('   Scaled: left=$scaledLeft, top=$scaledTop, right=$scaledRight, bottom=$scaledBottom');
+        print('   Size: ${scaledRight - scaledLeft} x ${scaledBottom - scaledTop}');
+        
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            // Image - centered with BoxFit.contain
+            Center(
+              child: SizedBox(
+                width: displayedWidth,
+                height: displayedHeight,
+                child: Image.file(
+                  imageFile,
+                  fit: BoxFit.contain,
+                ),
+              ),
+            ),
+            // Bounding box overlay
+            if (scaledRight > scaledLeft && scaledBottom > scaledTop && 
+                scaledLeft >= 0 && scaledTop >= 0 &&
+                scaledRight <= containerWidth && scaledBottom <= containerHeight)
+              Positioned(
+                left: scaledLeft,
+                top: scaledTop,
+                child: Container(
+                  width: scaledRight - scaledLeft,
+                  height: scaledBottom - scaledTop,
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: Colors.green,
+                      width: 5,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.green.withOpacity(0.8),
+                        blurRadius: 10,
+                        spreadRadius: 3,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
 }
