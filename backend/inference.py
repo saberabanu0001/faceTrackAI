@@ -81,6 +81,7 @@ class FaceAnalysis:
                         best_face1_idx = i
                         best_face2_idx = j
             
+            
             # Get bounding boxes for the matched faces
             # face_locations returns (top, right, bottom, left) tuples
             matched_face1_location = locations1[best_face1_idx]
